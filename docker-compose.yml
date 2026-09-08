@@ -1,0 +1,29 @@
+# Local development database.
+#
+# The application itself is added to this file in the delivery phase; for now this brings up
+# the Postgres that `mvnw spring-boot:run` expects on localhost:5432. Integration tests do
+# not use this container, they start their own throwaway one via Testcontainers.
+#
+#   docker compose up -d
+#   docker compose down -v      # -v also drops the data volume
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: matching-engine-db
+    environment:
+      POSTGRES_DB: matching_engine
+      POSTGRES_USER: matching
+      POSTGRES_PASSWORD: matching
+    ports:
+      - "5432:5432"
+    volumes:
+      - matching-engine-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matching -d matching_engine"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  matching-engine-pgdata:
