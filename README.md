@@ -19,14 +19,13 @@ Testcontainers, Docker.
 |---|---|
 | Domain model, schema, repositories | Done |
 | Flyway migrations, Hibernate schema validation | Done |
-| Matching engine | In progress |
-| Positions and realised P&L | Logic drafted on `Position`, not yet tested |
-| REST API | Stub endpoint only |
-| Per-symbol locking and concurrency test | Designed, not yet implemented |
+| Matching engine | Done — pure `OrderBookMatcher`, 21 unit tests |
+| Positions and realised P&L | Done — 17 unit tests, including crossing through zero |
+| REST API | Done — every endpoint below is wired |
+| Per-symbol locking and concurrency test | Done — 8 concurrent buyers against one resting order |
 | Dockerfile, CI, deployment | Not started |
 
-Sections below marked **planned** describe decisions that are made but not yet in the code.
-Everything else describes what is there now.
+50 unit tests run without Docker; the integration tests add a real Postgres on `verify`.
 
 ---
 
@@ -138,6 +137,26 @@ an order cannot be overfilled, and one that is already filled cannot be cancelle
 the matching engine stay a pure decision function — it decides *whether* and *how much* two
 orders trade, and does not also police quantities.
 
+### The matcher is pure, so the hard part is testable in milliseconds
+
+`OrderBookMatcher.match()` takes the incoming order and an already-ordered list of resting
+orders and returns a list of `Fill` records. No Spring, no database, no clock, and it
+mutates nothing it is given — deciding is not doing. `MatchingService` then applies those
+fills inside one transaction, holding the per-symbol lock.
+
+That split is what makes the matching rules cheap to test exhaustively: 21 tests over every
+crossing, pricing, quantity and stopping case, running with no container in well under a
+second. Testing the same rules through the service would mean a Postgres round trip per
+case, and the cases that matter — a market order sweeping three levels, a book that stops
+crossing halfway down — are exactly the ones that are fiddliest to set up that way.
+
+The matcher also **does not sort**. Price-time priority is expressed once, in the `order by`
+of the repository book queries, and the matcher consumes what it is handed. Two definitions
+of "best" could drift apart, and the database's is the one that has to be right, because it
+is the one holding the rows. Trusting the order is also what lets matching stop at the first
+non-crossing order rather than scanning the whole book: if the best remaining price is too
+dear, everything behind it is worse.
+
 ### Realised P&L accrues on reduction, never on opening
 
 Opening or adding to a position moves cash but does not create profit; it changes what you
@@ -153,7 +172,7 @@ on 100 and opens a *new short 50 at the execution price*, not a short carrying t
 long's cost basis. Getting this wrong produces P&L that looks plausible and is silently
 wrong from then on.
 
-### Concurrency: lock the book, not the orders *(planned)*
+### Concurrency: lock the book, not the orders
 
 Two orders arriving simultaneously for the same symbol must not both fill the same resting
 order. The obvious approach — `PESSIMISTIC_WRITE` on the resting orders about to be matched
@@ -170,7 +189,7 @@ That is the right trade here — correctness on one book matters more than paral
 it, and the parallelism that does matter, across symbols, is preserved.
 `PESSIMISTIC_WRITE` is kept on the matching-path order query as defence in depth.
 
-### Transaction boundary *(planned)*
+### Transaction boundary
 
 `MatchingService.submitOrder()` is `@Transactional`. One order submission that produces
 three fills must write all three trades and all the position updates, or none of them. A
@@ -195,7 +214,9 @@ GET    /api/trades?symbol=        executed trades
 GET    /api/positions?accountId=  positions and realised P&L
 ```
 
-Only `GET /api/book/{symbol}` exists so far, and it returns an empty book.
+All of the above are implemented. Errors come back as a JSON body naming the failure: 404
+for an unknown symbol or order id, 409 for cancelling an order that has already filled, and
+400 with per-field messages for a request that fails validation.
 
 **Submit an order:**
 

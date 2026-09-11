@@ -74,19 +74,37 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     @Query("""
             select o from Order o
             where o.symbol = :symbol
-              and o.side = :side
+              and o.side = com.harshshah.matchingengine.domain.Side.BUY
               and o.status in :statuses
               and o.remainingQuantity > 0
-            order by
-              case when :side = com.harshshah.matchingengine.domain.Side.BUY
-                   then -o.price else o.price end asc,
-              o.sequenceNumber asc
+            order by o.price desc, o.sequenceNumber asc
             """)
-    List<Order> lockRestingOrders(@Param("symbol") String symbol,
-                                  @Param("side") Side side,
-                                  @Param("statuses") Collection<OrderStatus> statuses);
+    List<Order> lockRestingBids(@Param("symbol") String symbol,
+                               @Param("statuses") Collection<OrderStatus> statuses);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            select o from Order o
+            where o.symbol = :symbol
+              and o.side = com.harshshah.matchingengine.domain.Side.SELL
+              and o.status in :statuses
+              and o.remainingQuantity > 0
+            order by o.price asc, o.sequenceNumber asc
+            """)
+    List<Order> lockRestingAsks(@Param("symbol") String symbol,
+                               @Param("statuses") Collection<OrderStatus> statuses);
+
+    /**
+     * The book for one side, locked and best-first.
+     *
+     * <p>Deliberately two queries rather than one with a conditional {@code order by}: the
+     * direction of the price sort is what makes "best" mean the highest bid but the lowest
+     * ask, and writing it out per side keeps that ordering textually identical to the
+     * read-only queries above, which is where it is verified against real Postgres.
+     */
     default List<Order> lockRestingOrders(String symbol, Side side) {
-        return lockRestingOrders(symbol, side, OrderStatus.RESTING);
+        return side == Side.BUY
+                ? lockRestingBids(symbol, OrderStatus.RESTING)
+                : lockRestingAsks(symbol, OrderStatus.RESTING);
     }
 }
