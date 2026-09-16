@@ -1,0 +1,70 @@
+name: CI
+
+# Runs on every push and every pull request. The integration tests need a Docker daemon for
+# Testcontainers; GitHub's ubuntu runners ship with one, so `verify` runs in full here
+# rather than being reduced to the unit tests.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+
+      # `verify` is the whole suite: 50 unit tests, then the Testcontainers integration
+      # tests against a real PostgreSQL 17, including the concurrency test. `test` alone
+      # would pass while leaving the locking behaviour entirely unexercised.
+      - name: Build and run all tests
+        run: ./mvnw -B verify
+
+      - name: Publish test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            target/surefire-reports/
+            target/failsafe-reports/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Publish coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-coverage
+          path: target/site/jacoco/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # Builds the image but does not push it: there is no registry to publish to yet, and
+      # the value here is catching a broken Dockerfile in CI rather than on a deploy.
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: matching-engine:${{ github.sha }}

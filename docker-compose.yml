@@ -1,11 +1,16 @@
-# Local development database.
+# Local development database, and optionally the application beside it.
 #
-# The application itself is added to this file in the delivery phase; for now this brings up
-# the Postgres that `mvnw spring-boot:run` expects on localhost:5432. Integration tests do
-# not use this container, they start their own throwaway one via Testcontainers.
+# Integration tests use neither of these: Testcontainers starts its own throwaway Postgres,
+# so `./mvnw verify` is unaffected by whatever is running here.
 #
-#   docker compose up -d
-#   docker compose down -v      # -v also drops the data volume
+#   docker compose up -d                    # just Postgres, for `./mvnw spring-boot:run`
+#   docker compose --profile app up -d      # Postgres AND the packaged application
+#   docker compose down -v                  # -v also drops the data volume
+
+# Pinned so the stack is identified by this name rather than by whatever the checkout
+# directory happens to be called. Without it, cloning into a differently named folder
+# creates a second, empty database beside the first and the old one looks like it vanished.
+name: matching-engine
 
 services:
   postgres:
@@ -24,6 +29,25 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Behind a profile so the default `docker compose up -d` still brings up only the
+  # database. Running both by default would take port 8080 and collide with the
+  # `./mvnw spring-boot:run` loop this file exists to support.
+  app:
+    profiles: ["app"]
+    build:
+      context: .
+    container_name: matching-engine-app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the database is reachable by service name, not localhost.
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/matching_engine
+      SPRING_DATASOURCE_USERNAME: matching
+      SPRING_DATASOURCE_PASSWORD: matching
+    ports:
+      - "8080:8080"
 
 volumes:
   matching-engine-pgdata:

@@ -23,7 +23,8 @@ Testcontainers, Docker.
 | Positions and realised P&L | Done — 17 unit tests, including crossing through zero |
 | REST API | Done — every endpoint below is wired |
 | Per-symbol locking and concurrency test | Done — 8 concurrent buyers against one resting order |
-| Dockerfile, CI, deployment | Not started |
+| Dockerfile and CI | Done — multi-stage image, GitHub Actions runs the full suite |
+| Publishing to a registry | Not started — CI builds the image but pushes nowhere |
 
 69 tests pass: 50 unit tests that need no Docker, and 19 integration tests against a real
 PostgreSQL 17 on `./mvnw verify`.
@@ -34,15 +35,48 @@ PostgreSQL 17 on `./mvnw verify`.
 
 Requires JDK 21 and Docker.
 
+**For development** — database in Docker, application on the host so you keep a fast
+restart loop:
+
 ```bash
 docker compose up -d          # PostgreSQL 17 on localhost:5432
 ./mvnw spring-boot:run        # app on localhost:8080
 ```
 
+**Everything in containers** — builds the image and wires it to the database:
+
+```bash
+docker compose --profile app up -d
+```
+
+The application is behind a compose profile so the plain `up -d` above still brings up only
+the database; starting both by default would take port 8080 and collide with
+`spring-boot:run`.
+
+A symbol needs a row in `instruments` before it can be traded — that row is what matching
+locks, so there is nothing to serialise on without it:
+
+```bash
+docker exec matching-engine-db psql -U matching -d matching_engine \
+  -c "INSERT INTO instruments (symbol, created_at) VALUES ('AAPL', now()) ON CONFLICT DO NOTHING;"
+```
+
 ```bash
 curl localhost:8080/actuator/health
 curl localhost:8080/api/book/AAPL
+
+# rest an offer, then lift it
+curl -X POST localhost:8080/api/orders -H 'Content-Type: application/json' \
+  -d '{"accountId":"3f1b8c2e-0000-4000-8000-000000000001","symbol":"AAPL",
+       "side":"SELL","type":"LIMIT","price":"150.00","quantity":100}'
+
+curl -X POST localhost:8080/api/orders -H 'Content-Type: application/json' \
+  -d '{"accountId":"3f1b8c2e-0000-4000-8000-000000000002","symbol":"AAPL",
+       "side":"BUY","type":"LIMIT","price":"155.00","quantity":100}'
 ```
+
+The second order fills at **150.00**, not the 155.00 it was willing to pay: the resting
+order's price is the one that was advertised, and it was there first.
 
 Tests are split by what they need to run:
 
@@ -198,6 +232,24 @@ partial write leaves the book inconsistent — quantity decremented with no trad
 it, or a trade with no matching position change — and there is no safe way to repair that
 after the fact. If the process dies mid-match, the transaction rolls back and the order is
 simply never acknowledged.
+
+---
+
+### The image ships a JRE, not a toolchain
+
+The `Dockerfile` builds in two stages. The first has a JDK and Maven and produces the jar;
+the second carries only a JRE and that jar. Nothing that compiled the code survives into the
+image that runs in production — no compiler, no build cache, no source. It runs as an
+unprivileged user for the same reason: this process never needs root, so it should never
+have it.
+
+Dependencies are resolved from the POM before any source is copied, so editing a Java file
+costs a recompile rather than a re-download of every dependency.
+
+The image build skips tests deliberately. The integration tests start a Docker container of
+their own, and this build is already running inside one. CI runs `./mvnw verify` on the
+host, where a daemon is actually available — see `.github/workflows/ci.yml`, which runs the
+full suite on every push and then confirms the image still builds.
 
 ---
 

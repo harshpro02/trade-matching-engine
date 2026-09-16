@@ -1,0 +1,25 @@
+# Everything here is either rebuilt inside the image or irrelevant to it. Keeping it out
+# shrinks the build context and stops a stale local target/ from leaking into the image.
+
+target/
+!.mvn/wrapper/maven-wrapper.properties
+
+.git/
+.gitignore
+.gitattributes
+.github/
+
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+
+docker-compose.yml
+Dockerfile
+.dockerignore
+README.md
+HELP.md

@@ -26,6 +26,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  jackson:
+    generator:
+      # Without this a zeroed BigDecimal serialises as "0E-8" rather than "0.00000000".
+      # Valid JSON, but money rendered in scientific notation is a parsing trap for any
+      # client reading it as a decimal string, and every scale in this API is deliberate.
+      write-bigdecimal-as-plain: true
+
 management:
   endpoints:
     web:
