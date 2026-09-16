@@ -10,11 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
-/** What an account holds, and what it has actually made, per symbol. */
 @RestController
 @RequestMapping("/api/positions")
 public class PositionController {
-
     private final BookService bookService;
 
     public PositionController(BookService bookService) {

@@ -1,0 +1,524 @@
+:root {
+    --bg: #0e1116;
+    --panel: #161b22;
+    --panel-2: #1c2230;
+    --line: #262d3a;
+    --text: #e6edf3;
+    --muted: #8b97a8;
+    --bid: #2ea86b;
+    --bid-dim: rgba(46, 168, 107, 0.16);
+    --ask: #e5534b;
+    --ask-dim: rgba(229, 83, 75, 0.16);
+    --accent: #4b9fff;
+    --radius: 10px;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+}
+
+h1, h2 {
+    margin: 0;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 15px;
+    letter-spacing: 0.01em;
+}
+
+h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+}
+
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    flex-wrap: wrap;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-right: auto;
+}
+
+.mark {
+    width: 10px;
+    height: 18px;
+    border-radius: 2px;
+    background: linear-gradient(to top, var(--bid) 50%, var(--ask) 50%);
+}
+
+.symbol-picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.symbol-picker label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+}
+
+select, input {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font: inherit;
+    min-width: 0;
+}
+
+input {
+    font-family: var(--mono);
+}
+
+select:focus, input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+}
+
+.status {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.status .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--muted);
+}
+
+.status.live .dot {
+    background: var(--bid);
+    box-shadow: 0 0 0 3px var(--bid-dim);
+}
+
+.status.down .dot {
+    background: var(--ask);
+    box-shadow: 0 0 0 3px var(--ask-dim);
+}
+
+.layout {
+    display: grid;
+    grid-template-columns: 280px minmax(320px, 1fr) minmax(300px, 380px);
+    gap: 14px;
+    padding: 14px;
+    align-items: start;
+}
+
+.panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+}
+
+.panel > h2 {
+    margin-bottom: 12px;
+}
+
+.sub {
+    color: var(--text);
+    font-family: var(--mono);
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.field {
+    margin-bottom: 12px;
+}
+
+.field > label, .field > .label {
+    display: block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 5px;
+}
+
+.field select, .field input {
+    width: 100%;
+}
+
+.segmented {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    background: var(--panel-2);
+    padding: 4px;
+    border-radius: 7px;
+    border: 1px solid var(--line);
+}
+
+.seg {
+    background: none;
+    border: 0;
+    border-radius: 5px;
+    color: var(--muted);
+    padding: 7px;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.seg:hover {
+    color: var(--text);
+}
+
+.seg.active {
+    background: #2b3446;
+    color: var(--text);
+}
+
+.seg.buy.active {
+    background: var(--bid);
+    color: #06210f;
+}
+
+.seg.sell.active {
+    background: var(--ask);
+    color: #2a0a08;
+}
+
+button.primary {
+    width: 100%;
+    border: 0;
+    border-radius: 7px;
+    padding: 11px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    color: #06210f;
+    background: var(--bid);
+}
+
+button.primary.sell {
+    background: var(--ask);
+    color: #2a0a08;
+}
+
+button.primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+button.ghost {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font: inherit;
+    cursor: pointer;
+}
+
+button.ghost:hover {
+    color: var(--text);
+    border-color: var(--accent);
+}
+
+.hint {
+    margin: 10px 0 0;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.ladder {
+    font-family: var(--mono);
+    font-size: 13px;
+}
+
+.ladder-head, .level {
+    display: grid;
+    grid-template-columns: 1fr 1fr 60px;
+    gap: 8px;
+}
+
+.ladder-head {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 0 8px 6px;
+}
+
+.ladder-head span:not(:first-child),
+.level span:not(:first-child) {
+    text-align: right;
+}
+
+.level {
+    position: relative;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.level .bar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    border-radius: 4px;
+    z-index: 0;
+}
+
+.level span {
+    position: relative;
+    z-index: 1;
+}
+
+.asks .level .bar {
+    background: var(--ask-dim);
+}
+
+.bids .level .bar {
+    background: var(--bid-dim);
+}
+
+.asks .level .px {
+    color: var(--ask);
+}
+
+.bids .level .px {
+    color: var(--bid);
+}
+
+.asks {
+    display: flex;
+    flex-direction: column-reverse;
+}
+
+.spread {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 8px 0;
+    padding: 7px 8px;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+}
+
+.spread-label {
+    font-family: system-ui, sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    font-size: 10px;
+}
+
+.spread-value {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+}
+
+.empty {
+    padding: 14px 8px;
+    color: var(--muted);
+    font-family: system-ui, sans-serif;
+    font-size: 12px;
+    text-align: center;
+}
+
+.side-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.subpanel h2 {
+    margin-bottom: 8px;
+}
+
+table.grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+table.grid th {
+    font-family: system-ui, sans-serif;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    font-weight: 500;
+    text-align: left;
+    padding: 0 6px 6px;
+    border-bottom: 1px solid var(--line);
+}
+
+table.grid td {
+    padding: 6px;
+    border-bottom: 1px solid rgba(38, 45, 58, 0.5);
+}
+
+table.grid .num {
+    text-align: right;
+}
+
+table.grid tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.pos {
+    color: var(--bid);
+}
+
+.neg {
+    color: var(--ask);
+}
+
+.tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.tag.BUY {
+    background: var(--bid-dim);
+    color: var(--bid);
+}
+
+.tag.SELL {
+    background: var(--ask-dim);
+    color: var(--ask);
+}
+
+button.cancel {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 4px;
+    padding: 2px 7px;
+    font: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+button.cancel:hover {
+    color: var(--ask);
+    border-color: var(--ask);
+}
+
+.toasts {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 50;
+    max-width: min(380px, calc(100vw - 32px));
+}
+
+.toast {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 7px;
+    padding: 10px 13px;
+    font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    animation: rise 0.18s ease-out;
+}
+
+.toast.error {
+    border-left-color: var(--ask);
+}
+
+.toast.fill {
+    border-left-color: var(--bid);
+}
+
+.toast .t-title {
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+
+.toast .t-body {
+    color: var(--muted);
+    font-size: 12px;
+    font-family: var(--mono);
+}
+
+@keyframes rise {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+}
+
+dialog {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    width: min(380px, calc(100vw - 32px));
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.6);
+}
+
+dialog h2 {
+    margin-bottom: 8px;
+}
+
+dialog input {
+    width: 100%;
+    margin-top: 12px;
+    text-transform: uppercase;
+}
+
+.dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.dialog-actions button.primary {
+    width: auto;
+    padding: 7px 16px;
+}
+
+@media (max-width: 1080px) {
+    .layout {
+        grid-template-columns: 1fr;
+    }
+}

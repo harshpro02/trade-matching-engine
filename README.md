@@ -23,10 +23,13 @@ Testcontainers, Docker.
 | Positions and realised P&L | Done — 17 unit tests, including crossing through zero |
 | REST API | Done — every endpoint below is wired |
 | Per-symbol locking and concurrency test | Done — 8 concurrent buyers against one resting order |
+| REST API paging and depth limits | Done — nothing returns an unbounded list |
+| Web UI | Done — order entry, depth ladder, positions and tape at `/` |
 | Dockerfile and CI | Done — multi-stage image, GitHub Actions runs the full suite |
 | Publishing to a registry | Not started — CI builds the image but pushes nowhere |
+| Authentication | Out of scope — see below |
 
-69 tests pass: 50 unit tests that need no Docker, and 19 integration tests against a real
+78 tests pass: 59 unit tests that need no Docker, and 19 integration tests against a real
 PostgreSQL 17 on `./mvnw verify`.
 
 ---
@@ -53,12 +56,15 @@ The application is behind a compose profile so the plain `up -d` above still bri
 the database; starting both by default would take port 8080 and collide with
 `spring-boot:run`.
 
+Then open **`http://localhost:8080/`** for the trading terminal.
+
 A symbol needs a row in `instruments` before it can be traded — that row is what matching
-locks, so there is nothing to serialise on without it:
+locks, so there is nothing to serialise on without it. Use the **+ New** button in the UI,
+or:
 
 ```bash
-docker exec matching-engine-db psql -U matching -d matching_engine \
-  -c "INSERT INTO instruments (symbol, created_at) VALUES ('AAPL', now()) ON CONFLICT DO NOTHING;"
+curl -X POST localhost:8080/api/instruments \
+  -H 'Content-Type: application/json' -d '{"symbol":"AAPL"}'
 ```
 
 ```bash
@@ -256,20 +262,42 @@ full suite on every push and then confirms the image still builds.
 ## API
 
 ```
-POST   /api/orders                submit an order
-DELETE /api/orders/{id}           cancel a resting order
-GET    /api/orders/{id}           order status
-GET    /api/orders?accountId=     orders for an account
+POST   /api/instruments                       list a new tradable symbol
+GET    /api/instruments                       every listed symbol
 
-GET    /api/book/{symbol}         current book, aggregated by price level
-GET    /api/trades?symbol=        executed trades
+POST   /api/orders                            submit an order
+DELETE /api/orders/{id}                       cancel a resting order
+GET    /api/orders/{id}                       order status
+GET    /api/orders?accountId=&page=&size=     orders for an account, paged
 
-GET    /api/positions?accountId=  positions and realised P&L
+GET    /api/book/{symbol}?depth=              book, aggregated by price level
+GET    /api/trades?symbol=&page=&size=        executed trades, paged
+
+GET    /api/positions?accountId=              positions and realised P&L
 ```
 
-All of the above are implemented. Errors come back as a JSON body naming the failure: 404
-for an unknown symbol or order id, 409 for cancelling an order that has already filled, and
-400 with per-field messages for a request that fails validation.
+Errors come back as a JSON body naming the failure: 404 for an unknown symbol or order id,
+409 for cancelling an order that has already filled or listing a symbol twice, and 400 with
+per-field messages for a request that fails validation.
+
+**Nothing returns an unbounded list.** Orders and trades are paged, capped at 200 per page;
+the book takes a `depth` and is capped at 50 price levels. Those two tables grow without
+limit, so an endpoint that returned all of either would eventually load a whole day's
+trading into memory to answer one request.
+
+The book is aggregated **in the database**, with `group by price` and a row limit, rather
+than by reading every resting order and summing them in Java. A symbol with fifty thousand
+resting orders still answers in as many rows as the caller asked for.
+
+## Web UI
+
+The application serves a trading terminal at `http://localhost:8080/` — order entry, a live
+depth ladder, positions, working orders and the tape, polling once a second. It is plain
+HTML, CSS and JavaScript served from `src/main/resources/static`, with no build step and no
+npm: it ships inside the jar and is available the moment the app starts.
+
+Two demo accounts are preset so one browser can take both sides of a trade and watch the
+position and realised P&L move on each.
 
 **Submit an order:**
 
@@ -316,5 +344,17 @@ Money and matching logic live in `domain/` and `service/`, never in a controller
 
 ## Deliberately out of scope
 
-No authentication, no UI, no market data feed, no websockets, no order types beyond `LIMIT`
-and `MARKET`, no microservices. Each of those turns a focused project into an unfinished one.
+No market data feed, no websockets, no order types beyond `LIMIT` and `MARKET`, no
+microservices. Each of those turns a focused project into an unfinished one.
+
+**No authentication.** `account_id` is taken from the request and trusted; there is no
+accounts table and no foreign key behind it. The assumption is explicit: identity belongs to
+an upstream system, and this service matches orders for an account it has already been told
+about. Adding a login to a matching engine would not have made the matching any more
+correct.
+
+Two consequences worth naming rather than discovering later. An account can **trade with
+itself** — the positions net out correctly, so it is not a correctness bug, but real venues
+block it because that is the shape of wash trading. And submission is **not idempotent**: a
+retried `POST /api/orders` creates a second order, where a real venue would require a
+client-supplied order id and reject the duplicate.

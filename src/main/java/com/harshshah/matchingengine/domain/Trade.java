@@ -13,17 +13,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * An immutable record that two orders crossed: {@code quantity} units of {@code symbol}
- * changed hands at {@code price}.
- *
- * <p>Trades are never updated or deleted. They are the audit trail, and every position
- * in the system is derivable by replaying them.
- */
 @Entity
 @Table(name = "trades")
 public class Trade {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
@@ -38,7 +30,6 @@ public class Trade {
     @Column(name = "sell_order_id", nullable = false, updatable = false)
     private UUID sellOrderId;
 
-    /** Always the resting order's price. See MatchingEngine for why. */
     @Column(name = "price", nullable = false, updatable = false, precision = 19, scale = 4)
     private BigDecimal price;
 
@@ -48,13 +39,11 @@ public class Trade {
     @Column(name = "executed_at", nullable = false, updatable = false)
     private Instant executedAt;
 
-    /** Database-assigned, gives trades a stable total order for replay and paging. */
     @Generated(event = EventType.INSERT)
     @Column(name = "sequence_number", insertable = false, updatable = false)
     private Long sequenceNumber;
 
     protected Trade() {
-        // for JPA
     }
 
     public Trade(String symbol, UUID buyOrderId, UUID sellOrderId,

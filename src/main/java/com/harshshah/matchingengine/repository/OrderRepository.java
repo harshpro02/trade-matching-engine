@@ -3,7 +3,10 @@ package com.harshshah.matchingengine.repository;
 import com.harshshah.matchingengine.domain.Order;
 import com.harshshah.matchingengine.domain.OrderStatus;
 import com.harshshah.matchingengine.domain.Side;
+import com.harshshah.matchingengine.dto.PriceLevelResponse;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -13,22 +16,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Order persistence, including the two book queries that define price-time priority.
- *
- * <p>Both book queries order by {@code (price, sequenceNumber)}. Price comes first because
- * price priority outranks time priority; the direction of the price sort is what makes
- * "best" mean the highest bid but the lowest ask. The sequence number breaks price ties in
- * arrival order and, unlike {@code createdAt}, is guaranteed distinct.
- */
 public interface OrderRepository extends JpaRepository<Order, UUID> {
+    Page<Order> findByAccountIdOrderBySequenceNumberDesc(UUID accountId, Pageable pageable);
 
-    List<Order> findByAccountIdOrderBySequenceNumberDesc(UUID accountId);
-
-    /**
-     * Resting bids for a symbol, best first: highest price, then earliest arrival.
-     * Read-only view, takes no locks.
-     */
     @Query("""
             select o from Order o
             where o.symbol = :symbol
@@ -40,10 +30,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findRestingBids(@Param("symbol") String symbol,
                                 @Param("statuses") Collection<OrderStatus> statuses);
 
-    /**
-     * Resting asks for a symbol, best first: lowest price, then earliest arrival.
-     * Read-only view, takes no locks.
-     */
     @Query("""
             select o from Order o
             where o.symbol = :symbol
@@ -63,13 +49,44 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
         return findRestingAsks(symbol, OrderStatus.RESTING);
     }
 
-    /**
-     * The same two queries, but taking {@code PESSIMISTIC_WRITE} row locks, for use by the
-     * matching path. Callers hold the per-symbol {@code instruments} lock already, so this
-     * is defence in depth rather than the primary concurrency control: it guarantees that
-     * even a code path that forgot the book lock cannot decrement a resting order that
-     * another transaction is mid-way through filling.
-     */
+    @Query("""
+            select new com.harshshah.matchingengine.dto.PriceLevelResponse(
+                       o.price, sum(o.remainingQuantity), count(o))
+            from Order o
+            where o.symbol = :symbol
+              and o.side = com.harshshah.matchingengine.domain.Side.BUY
+              and o.status in :statuses
+              and o.remainingQuantity > 0
+            group by o.price
+            order by o.price desc
+            """)
+    List<PriceLevelResponse> aggregateBids(@Param("symbol") String symbol,
+                                           @Param("statuses") Collection<OrderStatus> statuses,
+                                           Pageable depth);
+
+    @Query("""
+            select new com.harshshah.matchingengine.dto.PriceLevelResponse(
+                       o.price, sum(o.remainingQuantity), count(o))
+            from Order o
+            where o.symbol = :symbol
+              and o.side = com.harshshah.matchingengine.domain.Side.SELL
+              and o.status in :statuses
+              and o.remainingQuantity > 0
+            group by o.price
+            order by o.price asc
+            """)
+    List<PriceLevelResponse> aggregateAsks(@Param("symbol") String symbol,
+                                           @Param("statuses") Collection<OrderStatus> statuses,
+                                           Pageable depth);
+
+    default List<PriceLevelResponse> aggregateBids(String symbol, Pageable depth) {
+        return aggregateBids(symbol, OrderStatus.RESTING, depth);
+    }
+
+    default List<PriceLevelResponse> aggregateAsks(String symbol, Pageable depth) {
+        return aggregateAsks(symbol, OrderStatus.RESTING, depth);
+    }
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             select o from Order o
@@ -80,7 +97,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             order by o.price desc, o.sequenceNumber asc
             """)
     List<Order> lockRestingBids(@Param("symbol") String symbol,
-                               @Param("statuses") Collection<OrderStatus> statuses);
+                                @Param("statuses") Collection<OrderStatus> statuses);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
@@ -92,16 +109,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             order by o.price asc, o.sequenceNumber asc
             """)
     List<Order> lockRestingAsks(@Param("symbol") String symbol,
-                               @Param("statuses") Collection<OrderStatus> statuses);
+                                @Param("statuses") Collection<OrderStatus> statuses);
 
-    /**
-     * The book for one side, locked and best-first.
-     *
-     * <p>Deliberately two queries rather than one with a conditional {@code order by}: the
-     * direction of the price sort is what makes "best" mean the highest bid but the lowest
-     * ask, and writing it out per side keeps that ordering textually identical to the
-     * read-only queries above, which is where it is verified against real Postgres.
-     */
     default List<Order> lockRestingOrders(String symbol, Side side) {
         return side == Side.BUY
                 ? lockRestingBids(symbol, OrderStatus.RESTING)

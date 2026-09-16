@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import java.math.BigDecimal;
@@ -40,17 +41,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * The matching path end to end against real Postgres.
- *
- * <p>These cannot be unit tests. Time priority depends on an identity column the database
- * assigns, and the concurrency guarantee depends on {@code SELECT ... FOR UPDATE} actually
- * blocking a second session - neither of which exists outside a real database.
- */
 @SpringBootTest
 @Import(TestcontainersConfiguration.class)
 class MatchingServiceIT {
-
     private static final String SYMBOL = "AAPL";
 
     @Autowired
@@ -126,7 +119,6 @@ class MatchingServiceIT {
         assertThat(positionOf(seller).getQuantity()).isEqualTo(-100);
         assertThat(positionOf(seller).getAverageCost()).isEqualByComparingTo("150.00");
 
-        // Nothing is realised yet: both sides only opened.
         assertThat(positionOf(buyer).getRealisedPnl()).isEqualByComparingTo("0");
         assertThat(positionOf(seller).getRealisedPnl()).isEqualByComparingTo("0");
     }
@@ -155,7 +147,6 @@ class MatchingServiceIT {
         limit(UUID.randomUUID(), Side.SELL, "150.00", 40);
         SubmitOrderResponse cancelledRemainder = market(UUID.randomUUID(), Side.BUY, 100);
 
-        // A market order has no price at which it could sit, so the remainder is killed.
         assertThat(cancelledRemainder.status()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(cancelledRemainder.filledQuantity()).isEqualTo(40);
         assertThat(cancelledRemainder.remainingQuantity()).isEqualTo(60);
@@ -167,7 +158,7 @@ class MatchingServiceIT {
         UUID dear = UUID.randomUUID();
         UUID cheap = UUID.randomUUID();
 
-        limit(dear, Side.SELL, "151.00", 100);   // arrives first, but is worse for a buyer
+        limit(dear, Side.SELL, "151.00", 100);
         limit(cheap, Side.SELL, "150.00", 100);
 
         SubmitOrderResponse response = limit(UUID.randomUUID(), Side.BUY, "151.00", 100);
@@ -176,11 +167,8 @@ class MatchingServiceIT {
         assertThat(response.trades().getFirst().price()).isEqualByComparingTo("150.00");
         assertThat(positionOf(cheap).getQuantity()).isEqualTo(-100);
 
-        // The dear seller never traded, so it has no position row at all - positions are
-        // created by the first fill, not by submitting an order. Its order is still resting,
-        // which is the part that actually shows price priority was respected.
         assertThat(positionRepository.findByAccountIdAndSymbol(dear, SYMBOL)).isEmpty();
-        assertThat(bookService.book(SYMBOL).asks())
+        assertThat(bookService.book(SYMBOL, BookService.DEFAULT_DEPTH).asks())
                 .singleElement()
                 .satisfies(level -> {
                     assertThat(level.price()).isEqualByComparingTo("151.00");
@@ -199,8 +187,6 @@ class MatchingServiceIT {
 
         limit(UUID.randomUUID(), Side.BUY, "150.00", 100);
 
-        // Same price, so the sequence number decides - and it is assigned by the database,
-        // not read off a clock, so two orders in the same millisecond still have an order.
         assertThat(positionOf(first).getQuantity()).isEqualTo(-100);
         assertThat(positionRepository.findByAccountIdAndSymbol(second, SYMBOL)).isEmpty();
     }
@@ -214,7 +200,6 @@ class MatchingServiceIT {
 
         SubmitOrderResponse response = limit(UUID.randomUUID(), Side.BUY, "151.00", 250);
 
-        // 152.00 is too dear, so only two levels trade and 50 of the buy rests.
         assertThat(response.trades()).hasSize(2);
         assertThat(response.filledQuantity()).isEqualTo(200);
         assertThat(response.remainingQuantity()).isEqualTo(50);
@@ -233,14 +218,11 @@ class MatchingServiceIT {
         limit(buyer, Side.SELL, "140.00", 100);
         limit(shortSeller, Side.BUY, "140.00", 100);
 
-        // Sold at 150 and bought back at 140: the short made 1000, the long lost 1000.
         assertThat(positionOf(shortSeller).getRealisedPnl()).isEqualByComparingTo("1000.0000");
         assertThat(positionOf(buyer).getRealisedPnl()).isEqualByComparingTo("-1000.0000");
         assertThat(positionOf(shortSeller).isFlat()).isTrue();
         assertThat(positionOf(buyer).isFlat()).isTrue();
 
-        // A closed market is zero sum. If these ever stop summing to zero, money is
-        // being created or destroyed somewhere in the fill path.
         assertThat(positionOf(shortSeller).getRealisedPnl()
                 .add(positionOf(buyer).getRealisedPnl())).isEqualByComparingTo("0");
     }
@@ -253,7 +235,7 @@ class MatchingServiceIT {
         limit(UUID.randomUUID(), Side.BUY, "148.00", 70);
         limit(UUID.randomUUID(), Side.SELL, "151.00", 30);
 
-        OrderBookResponse book = bookService.book(SYMBOL);
+        OrderBookResponse book = bookService.book(SYMBOL, BookService.DEFAULT_DEPTH);
 
         assertThat(book.bids()).hasSize(2);
         assertThat(book.bids().getFirst().price()).isEqualByComparingTo("149.00");
@@ -273,10 +255,8 @@ class MatchingServiceIT {
 
         assertThat(orderRepository.findById(resting.orderId()).orElseThrow().getStatus())
                 .isEqualTo(OrderStatus.CANCELLED);
-        assertThat(bookService.book(SYMBOL).bids()).isEmpty();
+        assertThat(bookService.book(SYMBOL, BookService.DEFAULT_DEPTH).bids()).isEmpty();
 
-        // Cancelling it again is a conflict, not a no-op: the caller believed something
-        // about the order that is not true, and silently succeeding would hide that.
         assertThatThrownBy(() -> matchingService.cancelOrder(resting.orderId()))
                 .isInstanceOf(IllegalStateException.class);
     }
@@ -335,8 +315,6 @@ class MatchingServiceIT {
                 filled += result.get().filledQuantity();
             }
 
-            // Eight buyers wanted 800 units. Exactly 100 existed. The per-symbol lock is
-            // what makes that come out at 100 rather than some racing subset of 800.
             assertThat(filled).isEqualTo(100);
         } finally {
             pool.shutdownNow();
@@ -344,12 +322,14 @@ class MatchingServiceIT {
 
         assertThat(failures.get()).isZero();
 
-        Order restingSell = orderRepository.findByAccountIdOrderBySequenceNumberDesc(seller).getFirst();
+        Order restingSell = orderRepository.findByAccountIdOrderBySequenceNumberDesc(seller, PageRequest.of(0, 10))
+                .getContent().getFirst();
         assertThat(restingSell.getRemainingQuantity()).isZero();
         assertThat(restingSell.getStatus()).isEqualTo(OrderStatus.FILLED);
 
         assertThat(positionOf(seller).getQuantity()).isEqualTo(-100);
-        assertThat(tradeRepository.findBySymbolOrderBySequenceNumberDesc(SYMBOL).stream()
+        assertThat(tradeRepository.findBySymbolOrderBySequenceNumberDesc(SYMBOL, PageRequest.of(0, 100))
+                .getContent().stream()
                 .mapToLong(trade -> trade.getQuantity()).sum()).isEqualTo(100);
     }
 }

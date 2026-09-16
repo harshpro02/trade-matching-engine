@@ -11,12 +11,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-/**
- * Order is a state machine over remaining quantity. These cover the transitions; the
- * decision of <em>whether</em> two orders should trade lives in the matching engine, not here.
- */
 class OrderTest {
-
     private static final UUID ACCOUNT = UUID.randomUUID();
     private static final String SYMBOL = "AAPL";
     private static final Instant NOW = Instant.parse("2026-09-08T14:30:00Z");
@@ -28,7 +23,6 @@ class OrderTest {
     @Nested
     @DisplayName("creation")
     class Creation {
-
         @Test
         void limitOrderStartsOpenAndFullyUnfilled() {
             Order order = buyLimit(100);
@@ -60,7 +54,6 @@ class OrderTest {
     @Nested
     @DisplayName("filling")
     class Filling {
-
         @Test
         void partialFillLeavesTheOrderResting() {
             Order order = buyLimit(100);
@@ -107,7 +100,6 @@ class OrderTest {
     @Nested
     @DisplayName("cancelling")
     class Cancelling {
-
         @Test
         void anOpenOrderCanBeCancelled() {
             Order order = buyLimit(100);

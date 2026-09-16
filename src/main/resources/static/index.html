@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Matching Engine</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon"
+          href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+    <div class="brand">
+        <span class="mark"></span>
+        <h1>Matching Engine</h1>
+    </div>
+
+    <div class="symbol-picker">
+        <label for="symbol">Instrument</label>
+        <select id="symbol"></select>
+        <button id="new-symbol" class="ghost" type="button">+ New</button>
+    </div>
+
+    <div class="status" id="status">
+        <span class="dot"></span>
+        <span class="label">connecting</span>
+    </div>
+</header>
+
+<main class="layout">
+
+    <section class="panel ticket">
+        <h2>Order ticket</h2>
+
+        <form id="order-form" autocomplete="off">
+            <div class="field">
+                <label for="account">Trading as</label>
+                <select id="account"></select>
+            </div>
+
+            <div class="field">
+                <span class="label">Side</span>
+                <div class="segmented" role="group" id="side-group">
+                    <button type="button" class="seg buy active" data-side="BUY">Buy</button>
+                    <button type="button" class="seg sell" data-side="SELL">Sell</button>
+                </div>
+            </div>
+
+            <div class="field">
+                <span class="label">Type</span>
+                <div class="segmented" role="group" id="type-group">
+                    <button type="button" class="seg active" data-type="LIMIT">Limit</button>
+                    <button type="button" class="seg" data-type="MARKET">Market</button>
+                </div>
+            </div>
+
+            <div class="field" id="price-field">
+                <label for="price">Limit price</label>
+                <input id="price" inputmode="decimal" placeholder="150.00">
+            </div>
+
+            <div class="field">
+                <label for="quantity">Quantity</label>
+                <input id="quantity" inputmode="numeric" placeholder="100" value="100">
+            </div>
+
+            <button id="submit" class="primary buy" type="submit">Buy AAPL</button>
+            <p class="hint" id="market-hint" hidden>
+                A market order takes whatever is resting and cancels any remainder.
+            </p>
+        </form>
+    </section>
+
+    <section class="panel book">
+        <h2>Order book <span class="sub" id="book-symbol"></span></h2>
+
+        <div class="ladder">
+            <div class="ladder-head">
+                <span>Price</span><span>Quantity</span><span>Orders</span>
+            </div>
+
+            <div class="asks" id="asks"></div>
+
+            <div class="spread" id="spread">
+                <span class="spread-label">spread</span>
+                <span class="spread-value" id="spread-value">—</span>
+            </div>
+
+            <div class="bids" id="bids"></div>
+        </div>
+    </section>
+
+    <section class="panel side-stack">
+        <div class="subpanel">
+            <h2>Positions</h2>
+            <table class="grid" id="positions">
+                <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th class="num">Quantity</th>
+                    <th class="num">Avg cost</th>
+                    <th class="num">Realised P&amp;L</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="subpanel">
+            <h2>Working orders</h2>
+            <table class="grid" id="working">
+                <thead>
+                <tr>
+                    <th>Side</th>
+                    <th class="num">Price</th>
+                    <th class="num">Remaining</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="subpanel">
+            <h2>Tape</h2>
+            <table class="grid" id="tape">
+                <thead>
+                <tr>
+                    <th>Time</th>
+                    <th class="num">Price</th>
+                    <th class="num">Quantity</th>
+                </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </section>
+
+</main>
+
+<div class="toasts" id="toasts"></div>
+
+<dialog id="symbol-dialog">
+    <form method="dialog" id="symbol-form">
+        <h2>New instrument</h2>
+        <p class="hint">
+            A symbol needs a row in <code>instruments</code> before it can trade — that row
+            is what matching locks.
+        </p>
+        <input id="symbol-input" placeholder="MSFT" autocomplete="off">
+        <div class="dialog-actions">
+            <button value="cancel" class="ghost" type="submit">Cancel</button>
+            <button value="create" class="primary" type="submit">Create</button>
+        </div>
+    </form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

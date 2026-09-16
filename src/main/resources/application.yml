@@ -11,9 +11,6 @@ spring:
       maximum-pool-size: 10
 
   jpa:
-    # Flyway owns the schema. Hibernate is only allowed to check that the classes and the
-    # tables agree, never to change anything: a schema that silently mutates on deploy is
-    # how you lose data in production.
     hibernate:
       ddl-auto: validate
     open-in-view: false
@@ -28,10 +25,11 @@ spring:
 
   jackson:
     generator:
-      # Without this a zeroed BigDecimal serialises as "0E-8" rather than "0.00000000".
-      # Valid JSON, but money rendered in scientific notation is a parsing trap for any
-      # client reading it as a decimal string, and every scale in this API is deliberate.
+      # Otherwise a zeroed BigDecimal serialises as "0E-8" instead of "0.00000000".
       write-bigdecimal-as-plain: true
+
+server:
+  shutdown: graceful
 
 management:
   endpoints:
@@ -44,4 +42,4 @@ management:
 
 logging:
   level:
-    com.harshshah.matchingengine: DEBUG
+    com.harshshah.matchingengine: INFO

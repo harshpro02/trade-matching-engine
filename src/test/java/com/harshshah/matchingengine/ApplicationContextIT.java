@@ -25,14 +25,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * End to end scaffold check against a real Postgres: the context starts, Flyway builds the
- * schema, Hibernate agrees with it, the repositories round-trip, and the stub endpoint answers.
- */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration.class)
 class ApplicationContextIT {
-
     private static final String SYMBOL = "AAPL";
 
     @Autowired

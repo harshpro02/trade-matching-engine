@@ -16,22 +16,9 @@ import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
-/**
- * A single order to buy or sell a quantity of one symbol.
- *
- * <p>An order is created with {@code remainingQuantity == quantity} and is decremented
- * as it fills. It rests on the book for as long as {@link OrderStatus#isResting()} holds.
- *
- * <p><b>Time priority is carried by {@link #sequenceNumber}, not {@link #createdAt}.</b>
- * {@code createdAt} is a wall clock reading and two orders can easily share one; the
- * sequence number comes from a database sequence, so it is monotonic and total. Ordering
- * the book by {@code (price, sequenceNumber)} therefore gives a deterministic queue where
- * ordering by timestamp alone would leave ties to be broken arbitrarily.
- */
 @Entity
 @Table(name = "orders")
 public class Order {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false, updatable = false)
@@ -51,7 +38,6 @@ public class Order {
     @Column(name = "order_type", nullable = false, updatable = false, length = 8)
     private OrderType type;
 
-    /** Null for MARKET orders, which have no price of their own. */
     @Column(name = "price", precision = 19, scale = 4, updatable = false)
     private BigDecimal price;
 
@@ -68,16 +54,11 @@ public class Order {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    /**
-     * Assigned by a database sequence on insert, so it is monotonic across all sessions.
-     * Not written by the application; Hibernate reads it back after the insert.
-     */
     @Generated(event = EventType.INSERT)
     @Column(name = "sequence_number", insertable = false, updatable = false)
     private Long sequenceNumber;
 
     protected Order() {
-        // for JPA
     }
 
     private Order(UUID accountId, String symbol, Side side, OrderType type,
@@ -104,15 +85,10 @@ public class Order {
         return new Order(accountId, symbol, side, OrderType.MARKET, null, quantity, createdAt);
     }
 
-    /** Quantity that has already traded. */
     public long filledQuantity() {
         return quantity - remainingQuantity;
     }
 
-    /**
-     * Reduce the remaining quantity by {@code qty} and move the status along.
-     * Callers are responsible for never passing more than {@link #getRemainingQuantity()}.
-     */
     public void fill(long qty) {
         if (qty <= 0) {
             throw new IllegalArgumentException("fill quantity must be positive, was " + qty);
@@ -125,7 +101,6 @@ public class Order {
         status = remainingQuantity == 0 ? OrderStatus.FILLED : OrderStatus.PARTIALLY_FILLED;
     }
 
-    /** Take the order off the book. Only legal while it is still resting. */
     public void cancel() {
         if (status.isTerminal()) {
             throw new IllegalStateException("cannot cancel an order in status " + status);

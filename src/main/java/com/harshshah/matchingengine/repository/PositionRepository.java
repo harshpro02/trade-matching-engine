@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface PositionRepository extends JpaRepository<Position, PositionId> {
-
     List<Position> findByAccountId(UUID accountId);
 
     Optional<Position> findByAccountIdAndSymbol(UUID accountId, String symbol);

@@ -4,14 +4,11 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.UUID;
 
-/** Composite primary key for {@link Position}: one position per account per symbol. */
 public class PositionId implements Serializable {
-
     private UUID accountId;
     private String symbol;
 
     public PositionId() {
-        // required by JPA
     }
 
     public PositionId(UUID accountId, String symbol) {
