@@ -25,7 +25,8 @@ Testcontainers, Docker.
 | Per-symbol locking and concurrency test | Done — 8 concurrent buyers against one resting order |
 | Dockerfile, CI, deployment | Not started |
 
-50 unit tests run without Docker; the integration tests add a real Postgres on `verify`.
+69 tests pass: 50 unit tests that need no Docker, and 19 integration tests against a real
+PostgreSQL 17 on `./mvnw verify`.
 
 ---
 
