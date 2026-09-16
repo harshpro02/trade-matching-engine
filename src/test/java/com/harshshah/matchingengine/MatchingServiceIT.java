@@ -175,7 +175,17 @@ class MatchingServiceIT {
         assertThat(response.trades()).hasSize(1);
         assertThat(response.trades().getFirst().price()).isEqualByComparingTo("150.00");
         assertThat(positionOf(cheap).getQuantity()).isEqualTo(-100);
-        assertThat(positionOf(dear).getQuantity()).isZero();
+
+        // The dear seller never traded, so it has no position row at all - positions are
+        // created by the first fill, not by submitting an order. Its order is still resting,
+        // which is the part that actually shows price priority was respected.
+        assertThat(positionRepository.findByAccountIdAndSymbol(dear, SYMBOL)).isEmpty();
+        assertThat(bookService.book(SYMBOL).asks())
+                .singleElement()
+                .satisfies(level -> {
+                    assertThat(level.price()).isEqualByComparingTo("151.00");
+                    assertThat(level.quantity()).isEqualTo(100);
+                });
     }
 
     @Test
