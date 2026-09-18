@@ -19,15 +19,15 @@ Testcontainers, Docker.
 |---|---|
 | Domain model, schema, repositories | Done |
 | Flyway migrations, Hibernate schema validation | Done |
-| Matching engine | Done — pure `OrderBookMatcher`, 21 unit tests |
-| Positions and realised P&L | Done — 17 unit tests, including crossing through zero |
-| REST API | Done — every endpoint below is wired |
-| Per-symbol locking and concurrency test | Done — 8 concurrent buyers against one resting order |
-| REST API paging and depth limits | Done — nothing returns an unbounded list |
-| Web UI | Done — order entry, depth ladder, positions and tape at `/` |
-| Dockerfile and CI | Done — multi-stage image, GitHub Actions runs the full suite |
-| Publishing to a registry | Not started — CI builds the image but pushes nowhere |
-| Authentication | Out of scope — see below |
+| Matching engine | Done: pure `OrderBookMatcher`, 21 unit tests |
+| Positions and realised P&L | Done: 17 unit tests, including crossing through zero |
+| REST API | Done: every endpoint below is wired |
+| Per-symbol locking and concurrency test | Done: 8 concurrent buyers against one resting order |
+| REST API paging and depth limits | Done: nothing returns an unbounded list |
+| Web UI | Done: order entry, depth ladder, positions and tape at `/` |
+| Dockerfile and CI | Done: multi-stage image, GitHub Actions runs the full suite |
+| Publishing to a registry | Not started: CI builds the image but pushes nowhere |
+| Authentication | Out of scope: see below |
 
 78 tests pass: 59 unit tests that need no Docker, and 19 integration tests against a real
 PostgreSQL 17 on `./mvnw verify`.
@@ -38,7 +38,7 @@ PostgreSQL 17 on `./mvnw verify`.
 
 Requires JDK 21 and Docker.
 
-**For development** — database in Docker, application on the host so you keep a fast
+**For development**: database in Docker, application on the host so you keep a fast
 restart loop:
 
 ```bash
@@ -46,7 +46,7 @@ docker compose up -d          # PostgreSQL 17 on localhost:5432
 ./mvnw spring-boot:run        # app on localhost:8080
 ```
 
-**Everything in containers** — builds the image and wires it to the database:
+**Everything in containers**: builds the image and wires it to the database:
 
 ```bash
 docker compose --profile app up -d
@@ -58,7 +58,7 @@ the database; starting both by default would take port 8080 and collide with
 
 Then open **`http://localhost:8080/`** for the trading terminal.
 
-A symbol needs a row in `instruments` before it can be traded — that row is what matching
+A symbol needs a row in `instruments` before it can be traded; that row is what matching
 locks, so there is nothing to serialise on without it. Use the **+ New** button in the UI,
 or:
 
@@ -128,19 +128,19 @@ P&L figure that does not reconcile. `NUMERIC` is base-10 and exact.
 
 Prices and realised P&L are `NUMERIC(19,4)`. Average cost is `NUMERIC(19,8)`, and the extra
 precision is deliberate. A price is an *input*, exact as quoted. An average cost is a
-*quotient* — total notional over total quantity — and quotients do not terminate. Buy three
+*quotient*, total notional over total quantity, and quotients do not terminate. Buy three
 lots at 100.00 and the average is 33.333…; round that to 4dp and the discarded fraction of a
 cent gets multiplied by the closed quantity on every later partial fill and booked straight
 into realised P&L. Four extra digits absorb the division error so it never reaches the money.
 
-Rounding is `HALF_EVEN`, which is what financial systems use — `HALF_UP` biases upward
+Rounding is `HALF_EVEN`, which is what financial systems use; `HALF_UP` biases upward
 across many roundings.
 
 ### Time priority rides on a sequence number, not a timestamp
 
 `created_at` is a wall-clock reading, and two orders arriving in the same millisecond share
 one. Time priority would then be a coin flip, and an order that arrived second could fill
-first — a fairness bug, and on a real venue a regulatory one.
+first: a fairness bug, and on a real venue a regulatory one.
 
 So `orders.sequence_number` is `GENERATED ALWAYS AS IDENTITY`: monotonic, total, and
 impossible for two orders to share. The book sorts by `(price, sequence_number)`, so price
@@ -175,21 +175,21 @@ defence and it outlives any particular version of the application.
 
 `Order.fill()` and `Order.cancel()` enforce their own transitions and throw on illegal ones:
 an order cannot be overfilled, and one that is already filled cannot be cancelled. That lets
-the matching engine stay a pure decision function — it decides *whether* and *how much* two
+the matching engine stay a pure decision function: it decides *whether* and *how much* two
 orders trade, and does not also police quantities.
 
 ### The matcher is pure, so the hard part is testable in milliseconds
 
 `OrderBookMatcher.match()` takes the incoming order and an already-ordered list of resting
 orders and returns a list of `Fill` records. No Spring, no database, no clock, and it
-mutates nothing it is given — deciding is not doing. `MatchingService` then applies those
+mutates nothing it is given; deciding is not doing. `MatchingService` then applies those
 fills inside one transaction, holding the per-symbol lock.
 
 That split is what makes the matching rules cheap to test exhaustively: 21 tests over every
 crossing, pricing, quantity and stopping case, running with no container in well under a
 second. Testing the same rules through the service would mean a Postgres round trip per
-case, and the cases that matter — a market order sweeping three levels, a book that stops
-crossing halfway down — are exactly the ones that are fiddliest to set up that way.
+case, and the cases that matter (a market order sweeping three levels, a book that stops
+crossing halfway down) are exactly the ones that are fiddliest to set up that way.
 
 The matcher also **does not sort**. Price-time priority is expressed once, in the `order by`
 of the repository book queries, and the matcher consumes what it is handed. Two definitions
@@ -206,7 +206,7 @@ price. Until then it is a mark-to-market opinion that changes every time the mar
 
 So `Position.applyFill()` realises `(executionPrice - averageCost) * closedQuantity` for a
 long, inverted for a short, and leaves `averageCost` untouched when a position is merely
-reduced — the surviving lot keeps its original cost basis.
+reduced; the surviving lot keeps its original cost basis.
 
 The case worth calling out is **crossing through zero**. Selling 150 while long 100 realises
 on 100 and opens a *new short 50 at the execution price*, not a short carrying the old
@@ -216,8 +216,8 @@ wrong from then on.
 ### Concurrency: lock the book, not the orders
 
 Two orders arriving simultaneously for the same symbol must not both fill the same resting
-order. The obvious approach — `PESSIMISTIC_WRITE` on the resting orders about to be matched
-— has two problems. Two sessions locking overlapping sets of orders in different sequences
+order. The obvious approach, `PESSIMISTIC_WRITE` on the resting orders about to be matched,
+has two problems. Two sessions locking overlapping sets of orders in different sequences
 can deadlock, and `ORDER BY ... LIMIT n FOR UPDATE` re-evaluates rows *after* the lock is
 granted, so two sessions can disagree about what "the best n" are.
 
@@ -226,7 +226,7 @@ on that row first. This serialises all matching for one symbol while leaving dif
 symbols fully parallel, and it cannot deadlock, because there is only ever one lock to take.
 
 The tradeoff is explicit: throughput on a single symbol is capped at one order at a time.
-That is the right trade here — correctness on one book matters more than parallelism within
+That is the right trade here: correctness on one book matters more than parallelism within
 it, and the parallelism that does matter, across symbols, is preserved.
 `PESSIMISTIC_WRITE` is kept on the matching-path order query as defence in depth.
 
@@ -234,8 +234,8 @@ it, and the parallelism that does matter, across symbols, is preserved.
 
 `MatchingService.submitOrder()` is `@Transactional`. One order submission that produces
 three fills must write all three trades and all the position updates, or none of them. A
-partial write leaves the book inconsistent — quantity decremented with no trade to show for
-it, or a trade with no matching position change — and there is no safe way to repair that
+partial write leaves the book inconsistent (quantity decremented with no trade to show for
+it, or a trade with no matching position change), and there is no safe way to repair that
 after the fact. If the process dies mid-match, the transaction rolls back and the order is
 simply never acknowledged.
 
@@ -245,7 +245,7 @@ simply never acknowledged.
 
 The `Dockerfile` builds in two stages. The first has a JDK and Maven and produces the jar;
 the second carries only a JRE and that jar. Nothing that compiled the code survives into the
-image that runs in production — no compiler, no build cache, no source. It runs as an
+image that runs in production: no compiler, no build cache, no source. It runs as an
 unprivileged user for the same reason: this process never needs root, so it should never
 have it.
 
@@ -254,7 +254,7 @@ costs a recompile rather than a re-download of every dependency.
 
 The image build skips tests deliberately. The integration tests start a Docker container of
 their own, and this build is already running inside one. CI runs `./mvnw verify` on the
-host, where a daemon is actually available — see `.github/workflows/ci.yml`, which runs the
+host, where a daemon is actually available; see `.github/workflows/ci.yml`, which runs the
 full suite on every push and then confirms the image still builds.
 
 ---
@@ -291,7 +291,7 @@ resting orders still answers in as many rows as the caller asked for.
 
 ## Web UI
 
-The application serves a trading terminal at `http://localhost:8080/` — order entry, a live
+The application serves a trading terminal at `http://localhost:8080/`: order entry, a live
 depth ladder, positions, working orders and the tape, polling once a second. It is plain
 HTML, CSS and JavaScript served from `src/main/resources/static`, with no build step and no
 npm: it ships inside the jar and is available the moment the app starts.
@@ -354,7 +354,7 @@ about. Adding a login to a matching engine would not have made the matching any 
 correct.
 
 Two consequences worth naming rather than discovering later. An account can **trade with
-itself** — the positions net out correctly, so it is not a correctness bug, but real venues
+itself**: the positions net out correctly, so it is not a correctness bug, but real venues
 block it because that is the shape of wash trading. And submission is **not idempotent**: a
 retried `POST /api/orders` creates a second order, where a real venue would require a
 client-supplied order id and reject the duplicate.
