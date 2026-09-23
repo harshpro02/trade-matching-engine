@@ -8,7 +8,6 @@ const state = {
     account: ACCOUNTS[0].id,
     side: 'BUY',
     type: 'LIMIT',
-    lastTradeId: null,
     refreshing: false
 };
 
@@ -43,6 +42,13 @@ class ApiFailure extends Error {
         }
         return `HTTP ${this.status}`;
     }
+}
+
+function describe(failure) {
+    // fetch rejects with a plain TypeError when the server is unreachable, so this has
+    // to survive an error that is not an ApiFailure and has no detail() on it.
+    const detail = failure instanceof ApiFailure ? failure.detail() : 'the server did not respond';
+    return `${failure.message}\n${detail}`;
 }
 
 function toast(title, body, kind) {
@@ -247,7 +253,7 @@ async function submitOrder(event) {
         }
         await refresh();
     } catch (failure) {
-        toast('Rejected', failure.message + '\n' + failure.detail(), 'error');
+        toast('Rejected', describe(failure), 'error');
     } finally {
         button.disabled = false;
     }
@@ -331,7 +337,7 @@ function init() {
             await loadInstruments(symbol);
             await refresh();
         } catch (failure) {
-            toast('Could not create', failure.message + '\n' + failure.detail(), 'error');
+            toast('Could not create', describe(failure), 'error');
         }
     });
 
