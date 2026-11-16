@@ -59,7 +59,7 @@ the database; starting both by default would take port 8080 and collide with
 Then open **`http://localhost:8080/`** for the trading terminal.
 
 A symbol needs a row in `instruments` before it can be traded; that row is what matching
-locks, so there is nothing to serialise on without it. Use the **+ New** button in the UI,
+locks, so there is nothing to serialise on without it. Choose **Open trading workspace**, then use the **+** button beside the instrument selector,
 or:
 
 ```bash
@@ -97,6 +97,24 @@ integration tests start their own throwaway Postgres and ignore the compose cont
 Coverage report after a test run: `target/site/jacoco/index.html`.
 
 ---
+
+## Interactive workspace
+
+The default screen is a plain-language walkthrough. Set up a practice market, meet two sellers, buy 100 practice shares and see why the engine matches 80 + 20 at 150.10 even though the buyer allows 150.15. The two sellers use distinct sandbox accounts; Account A buys, while Accounts B and C supply the first two sell orders. The full workspace and a return to Simple view remain available.
+
+![Matching explained through buyers and sellers](docs/simple-view.png)
+
+![Interactive matching-engine workspace](docs/workspace.png)
+
+The browser UI at `/` includes:
+
+- Price/quantity summary from the real engine, with explicit sandbox and polling labels.
+- Cumulative depth and execution-price charts; no external prices or fabricated history.
+- Clickable book levels that prepare an opposite-side limit order using the selected price, quantity presets, order estimates, and a persistent execution receipt.
+- Account switching, working-order cancellation, positions and realised P&L. Working orders are filtered from the latest 100 account orders, and the interface reports that scope. The execution chart loads up to 100 trades; the tape shows the latest ten.
+- A guided demo that creates a new `DEMO.*` instrument and nine resting orders. The crossing buy demonstrates an 80-unit fill followed by a 20-unit fill at the same resting price. It writes persistent sandbox data, never resets an existing instrument, and starts a fresh market after an interrupted step to avoid automatically repeating uncertain submissions.
+
+Book prices, trades and realised P&L display four decimals; position average cost displays eight. Order estimates are approximate browser calculations; authoritative matching and accounting remain in the Java service. The browser validates positive integer quantities and limit prices with at most four decimal places. Disconnected data is explicitly marked potentially stale.
 
 ## Matching rules
 

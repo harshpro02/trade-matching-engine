@@ -1,161 +1,590 @@
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Matching Engine</title>
-    <link rel="stylesheet" href="styles.css">
-    <link rel="icon"
-          href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
-</head>
-<body>
-
-<header class="topbar">
-    <div class="brand">
-        <span class="mark"></span>
-        <h1>Matching Engine</h1>
-    </div>
-
-    <div class="symbol-picker">
-        <label for="symbol">Instrument</label>
-        <select id="symbol"></select>
-        <button id="new-symbol" class="ghost" type="button">+ New</button>
-    </div>
-
-    <div class="status" id="status">
-        <span class="dot"></span>
-        <span class="label">connecting</span>
-    </div>
-</header>
-
-<main class="layout">
-
-    <section class="panel ticket">
-        <h2>Order ticket</h2>
-
-        <form id="order-form" autocomplete="off">
-            <div class="field">
-                <label for="account">Trading as</label>
-                <select id="account"></select>
-            </div>
-
-            <div class="field">
-                <span class="label">Side</span>
-                <div class="segmented" role="group" id="side-group">
-                    <button type="button" class="seg buy active" data-side="BUY">Buy</button>
-                    <button type="button" class="seg sell" data-side="SELL">Sell</button>
-                </div>
-            </div>
-
-            <div class="field">
-                <span class="label">Type</span>
-                <div class="segmented" role="group" id="type-group">
-                    <button type="button" class="seg active" data-type="LIMIT">Limit</button>
-                    <button type="button" class="seg" data-type="MARKET">Market</button>
-                </div>
-            </div>
-
-            <div class="field" id="price-field">
-                <label for="price">Limit price</label>
-                <input id="price" inputmode="decimal" placeholder="150.00">
-            </div>
-
-            <div class="field">
-                <label for="quantity">Quantity</label>
-                <input id="quantity" inputmode="numeric" placeholder="100" value="100">
-            </div>
-
-            <button id="submit" class="primary buy" type="submit">Buy AAPL</button>
-            <p class="hint" id="market-hint" hidden>
-                A market order takes whatever is resting and cancels any remainder.
-            </p>
-        </form>
-    </section>
-
-    <section class="panel book">
-        <h2>Order book <span class="sub" id="book-symbol"></span></h2>
-
-        <div class="ladder">
-            <div class="ladder-head">
-                <span>Price</span><span>Quantity</span><span>Orders</span>
-            </div>
-
-            <div class="asks" id="asks"></div>
-
-            <div class="spread" id="spread">
-                <span class="spread-label">spread</span>
-                <span class="spread-value" id="spread-value">—</span>
-            </div>
-
-            <div class="bids" id="bids"></div>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="An interactive price-time priority matching engine with real order execution, positions and order-book depth."
+    />
+    <title>Matching Engine | Trading workspace</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="story.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c3149'/%3E%3Cpath stroke='%237ed5b1' stroke-width='3' d='M8 24V15m8 9V7m8 17V11'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body class="beginner-mode">
+    <section
+      id="intro-story"
+      class="intro-story"
+      aria-labelledby="story-heading"
+    >
+      <header class="story-header">
+        <a class="brand" href="/"
+          ><span class="mark"><i></i><i></i><i></i></span>Matching Engine</a
+        ><span>THE STOCK EXCHANGE, EXPLAINED</span
+        ><button id="story-dashboard" class="story-secondary">
+          Open trading workspace ↗
+        </button>
+      </header>
+      <main class="story-main">
+        <div class="eyebrow">NO TRADING KNOWLEDGE NEEDED</div>
+        <h1 id="story-heading">
+          Someone wants to buy.<br /><em>Someone wants to sell.</em>
+        </h1>
+        <p class="story-lead">
+          This engine brings them together. Try a fictional market and watch how
+          it chooses the price and who gets served first.
+        </p>
+        <div class="story-steps">
+          <span class="active">01 / Meet the sellers</span
+          ><span>02 / Make the trade</span><span>03 / See why it happened</span>
         </div>
+        <div class="story-stage">
+          <div class="trade-story-market">
+            <div class="story-market-label">
+              <span class="signal-dot"></span
+              ><span id="story-market-state"
+                >A fictional example, waiting to run</span
+              >
+            </div>
+            <div class="seller-card" id="seller-first">
+              <span class="person-avatar">A</span>
+              <div><strong>Seller A</strong><small>Arrived first</small></div>
+              <div class="seller-offer">
+                <strong>80 shares</strong><small>at 150.10 each</small>
+              </div>
+              <span class="seller-outcome" id="seller-first-outcome"
+                >Waiting</span
+              >
+            </div>
+            <div class="seller-card" id="seller-second">
+              <span class="person-avatar">B</span>
+              <div><strong>Seller B</strong><small>Arrived second</small></div>
+              <div class="seller-offer">
+                <strong>40 shares</strong><small>at 150.10 each</small>
+              </div>
+              <span class="seller-outcome" id="seller-second-outcome"
+                >Waiting</span
+              >
+            </div>
+            <div class="trade-connector">
+              <span>↓</span>
+              <div id="story-match-label">Same price. Who goes first?</div>
+            </div>
+            <div class="buyer-card">
+              <span class="person-avatar">YOU</span>
+              <div>
+                <strong>The buyer</strong><small>Wants 100 shares</small>
+              </div>
+              <div class="seller-offer">
+                <strong>Up to 150.15</strong
+                ><small>Maximum price per share</small>
+              </div>
+            </div>
+            <p class="story-illustration-note">
+              These are practice shares. The engine runs the trade, but no real
+              money changes hands.
+            </p>
+          </div>
+          <div class="story-narration">
+            <span class="eyebrow" id="story-kicker">START WITH THE PEOPLE</span>
+            <h2 id="story-title">
+              Two sellers. One buyer. A fair set of rules.
+            </h2>
+            <p id="story-text">
+              Both sellers want the same price. Our buyer wants 100 shares. Who
+              should sell first, and should the buyer pay their maximum? Let the
+              engine show you.
+            </p>
+            <div class="story-evidence" id="story-evidence">
+              This creates a separate practice market using real orders in the
+              local engine. It does not place orders on a stock exchange.
+            </div>
+            <button id="story-next" class="story-action">
+              ▶ Set up this practice market
+            </button>
+            <p id="story-message" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="story-takeaway" id="story-takeaway" hidden></div>
+        <div class="story-bottom">
+          <p>
+            <strong>The rule is simple.</strong> Best price first. At the same
+            price, whoever arrived first. The trade happens at the waiting
+            seller's price.
+          </p>
+          <button id="story-details" class="story-text-link">
+            Try your own orders ↗
+          </button>
+        </div>
+        <details class="story-glossary">
+          <summary>Three trading words, in plain English.</summary>
+          <div>
+            <p>
+              <strong>Order:</strong> a request to buy or sell a quantity of
+              shares.
+            </p>
+            <p>
+              <strong>Order book:</strong> the list of buyers and sellers still
+              waiting to trade.
+            </p>
+            <p>
+              <strong>Limit price:</strong> the most a buyer will pay, or the
+              least a seller will accept.
+            </p>
+          </div>
+        </details>
+      </main>
     </section>
-
-    <section class="panel side-stack">
-        <div class="subpanel">
-            <h2>Positions</h2>
-            <table class="grid" id="positions">
+    <a class="skip" href="#workspace">Skip to trading workspace</a>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Matching Engine home"
+        ><span class="mark"><i></i><i></i><i></i></span
+        ><span>Matching Engine<small>PRICE. TIME. EXECUTION.</small></span></a
+      >
+      <button id="simple-view" class="ghost">← Simple view</button>
+      <nav class="topnav" aria-label="Workspace navigation">
+        <a href="#workspace" class="active">Workspace</a
+        ><button id="rules-open">How matching works ↗</button>
+      </nav>
+      <div class="top-right">
+        <span class="sandbox-badge">SANDBOX</span>
+        <div class="status" id="status" role="status">
+          <span class="dot"></span><span class="label">Connecting</span>
+        </div>
+      </div>
+    </header>
+    <main id="workspace" tabindex="-1">
+      <div class="workspace-heading">
+        <div>
+          <div class="eyebrow">EXCHANGE WORKSPACE</div>
+          <h1>Inside the order book<span>.</span></h1>
+          <p>Place an order. See exactly how it matches.</p>
+        </div>
+        <div class="workspace-tools">
+          <button id="demo-toggle" class="ghost">▶ Guided demo</button
+          ><button
+            id="refresh-now"
+            class="ghost"
+            aria-label="Refresh market data"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+      </div>
+      <section
+        class="demo-banner"
+        id="demo-panel"
+        hidden
+        aria-labelledby="demo-title"
+      >
+        <div class="demo-progress">
+          <span id="demo-step-number">01</span>
+          <div>
+            <h2 id="demo-title">Build a market, one step at a time.</h2>
+            <p id="demo-description">
+              Create a separate demo instrument, add resting orders, then send a
+              crossing order. These actions write to this sandbox's real engine
+              and database.
+            </p>
+            <p id="demo-result" role="status"></p>
+          </div>
+        </div>
+        <button id="demo-next" class="demo-button">
+          1. Create demo market ↗</button
+        ><button
+          id="demo-close"
+          class="demo-close"
+          aria-label="Hide guided demo"
+        >
+          ✕
+        </button>
+      </section>
+      <section class="market-strip" aria-label="Selected market">
+        <div class="instrument">
+          <span class="instrument-avatar">↗</span>
+          <div>
+            <label for="symbol">INSTRUMENT</label>
+            <div class="symbol-picker">
+              <select id="symbol" aria-label="Instrument"></select
+              ><button
+                id="new-symbol"
+                type="button"
+                aria-label="Create new instrument"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="market-stat">
+          <span>Last execution</span><strong id="last-price">—</strong
+          ><small id="last-size">No executions loaded</small>
+        </div>
+        <div class="market-stat">
+          <span>Best bid</span><strong id="best-bid" class="pos">—</strong
+          ><small id="bid-size">— units</small>
+        </div>
+        <div class="market-stat">
+          <span>Best ask</span><strong id="best-ask" class="neg">—</strong
+          ><small id="ask-size">— units</small>
+        </div>
+        <div class="market-stat">
+          <span>Spread</span><strong id="spread-stat">—</strong
+          ><small>Ask minus bid</small>
+        </div>
+        <div class="market-stat last-stat">
+          <span>Visible book depth</span><strong id="book-depth">—</strong
+          ><small>Up to 12 levels per side</small>
+        </div>
+      </section>
+      <p class="connection-note" id="connection-note" role="status">
+        Connecting to the engine. No real money or external market feed.
+      </p>
+      <div class="layout">
+        <section class="panel ticket">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">01 / SUBMIT</span>
+              <h2>Order ticket</h2>
+            </div>
+            <span class="small-label">SANDBOX</span>
+          </div>
+          <form id="order-form" autocomplete="off">
+            <div class="field">
+              <label for="account">Account</label
+              ><select id="account"></select>
+            </div>
+            <div class="field">
+              <span class="label">Direction</span>
+              <div
+                class="segmented"
+                role="group"
+                aria-label="Order side"
+                id="side-group"
+              >
+                <button
+                  type="button"
+                  class="seg buy active"
+                  data-side="BUY"
+                  aria-pressed="true"
+                >
+                  ↗ Buy</button
+                ><button
+                  type="button"
+                  class="seg sell"
+                  data-side="SELL"
+                  aria-pressed="false"
+                >
+                  ↘ Sell
+                </button>
+              </div>
+            </div>
+            <div class="field">
+              <span class="label">Order type</span>
+              <div
+                class="segmented type-segmented"
+                role="group"
+                aria-label="Order type"
+                id="type-group"
+              >
+                <button
+                  type="button"
+                  class="seg active"
+                  data-type="LIMIT"
+                  aria-pressed="true"
+                >
+                  Limit</button
+                ><button
+                  type="button"
+                  class="seg"
+                  data-type="MARKET"
+                  aria-pressed="false"
+                >
+                  Market
+                </button>
+              </div>
+            </div>
+            <div class="field" id="price-field">
+              <label for="price">Limit price <span>per unit</span></label>
+              <div class="input-wrap">
+                <input
+                  id="price"
+                  inputmode="decimal"
+                  placeholder="150.1000"
+                  required
+                  aria-describedby="price-help"
+                /><span>PRICE</span>
+              </div>
+              <small id="price-help"
+                >Click a book level to use its exact price.</small
+              >
+            </div>
+            <div class="field">
+              <label for="quantity">Quantity <span>units</span></label>
+              <div class="input-wrap">
+                <input
+                  id="quantity"
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputmode="numeric"
+                  placeholder="100"
+                  value="100"
+                  required
+                /><span>QTY</span>
+              </div>
+              <div class="quantity-presets" aria-label="Quantity presets">
+                <button type="button" data-quantity="10">10</button
+                ><button type="button" data-quantity="50">50</button
+                ><button type="button" data-quantity="100">100</button
+                ><button type="button" data-quantity="250">250</button>
+              </div>
+            </div>
+            <div class="order-summary">
+              <div>
+                <span>Order estimate</span><strong id="notional">—</strong>
+              </div>
+              <small id="estimate-note"
+                >Limit price × quantity. Display estimate only.</small
+              >
+            </div>
+            <button id="submit" class="primary buy" type="submit">Buy</button>
+            <p class="hint" id="market-hint" hidden>
+              Market orders take available liquidity. Unfilled quantity is
+              cancelled.
+            </p>
+            <p class="ticket-note">
+              Orders execute at the resting order's price. Price priority first,
+              arrival order second.
+            </p>
+          </form>
+        </section>
+        <div class="center-stack">
+          <section class="panel chart-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">02 / EXPLORE</span>
+                <h2>Market depth</h2>
+              </div>
+              <div class="chart-tabs" role="group" aria-label="Chart view">
+                <button class="on" id="depth-tab" aria-pressed="true">
+                  Depth</button
+                ><button id="trades-tab" aria-pressed="false">
+                  Executions
+                </button>
+              </div>
+            </div>
+            <div id="market-chart" class="market-chart">
+              <div class="chart-empty">
+                <span>⌁</span><strong>A market starts with an order.</strong>
+                <p>Choose an instrument or start the guided demo.</p>
+              </div>
+            </div>
+            <div class="chart-caption">
+              <span
+                ><i class="bid-dot"></i>Bids <i class="ask-dot"></i>Asks</span
+              ><span id="chart-caption"
+                >Cumulative visible quantity by price</span
+              >
+            </div>
+          </section>
+          <section class="panel activity-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">03 / MANAGE</span>
+                <h2>Account activity</h2>
+              </div>
+              <span id="account-label" class="small-label">ACCOUNT A</span>
+            </div>
+            <div
+              class="activity-tabs"
+              role="group"
+              aria-label="Account activity view"
+            >
+              <button class="on" data-activity="working" aria-pressed="true">
+                Working orders <span id="working-count">0</span></button
+              ><button data-activity="positions" aria-pressed="false">
+                Positions <span id="position-count">0</span>
+              </button>
+            </div>
+            <div id="working-panel" class="tablewrap">
+              <table class="grid" id="working">
                 <thead>
-                <tr>
+                  <tr>
+                    <th>Side</th>
+                    <th class="num">Price</th>
+                    <th class="num">Remaining</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div id="positions-panel" class="tablewrap" hidden>
+              <table class="grid" id="positions">
+                <thead>
+                  <tr>
                     <th>Symbol</th>
                     <th class="num">Quantity</th>
                     <th class="num">Avg cost</th>
                     <th class="num">Realised P&amp;L</th>
-                </tr>
+                  </tr>
                 </thead>
                 <tbody></tbody>
-            </table>
+              </table>
+            </div>
+            <p id="orders-scope" class="activity-note">
+              Working orders are drawn from the latest 100 orders for this
+              account.
+            </p>
+          </section>
+          <section class="receipt" id="receipt" aria-labelledby="receipt-title">
+            <div class="receipt-icon">✓</div>
+            <div>
+              <span class="eyebrow">EXECUTION RECEIPT</span>
+              <h2 id="receipt-title">Your next order, explained.</h2>
+              <p id="receipt-text">
+                Submit an order to see its status, fills and remaining quantity
+                here.
+              </p>
+            </div>
+          </section>
         </div>
-
-        <div class="subpanel">
-            <h2>Working orders</h2>
-            <table class="grid" id="working">
+        <div class="right-stack">
+          <section class="panel book">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">RESTING LIQUIDITY</span>
+                <h2>Order book <span class="sub" id="book-symbol"></span></h2>
+              </div>
+              <span class="small-label">12 LEVELS</span>
+            </div>
+            <div class="ladder">
+              <div class="ladder-head">
+                <span>Price</span><span>Quantity</span><span>Orders</span>
+              </div>
+              <div class="asks" id="asks"></div>
+              <div class="spread" id="spread">
+                <span class="spread-label">Spread</span
+                ><span class="spread-value" id="spread-value">—</span>
+              </div>
+              <div class="bids" id="bids"></div>
+            </div>
+            <div class="imbalance">
+              <span id="bid-share">Bids —</span
+              ><span id="ask-share">Asks —</span>
+            </div>
+            <div class="imbalance-track"><span id="imbalance-fill"></span></div>
+            <p class="book-note">
+              Select a price to prepare the opposite-side limit order.
+            </p>
+          </section>
+          <section class="panel tape-panel">
+            <div class="panel-heading">
+              <div>
+                <span class="eyebrow">EXECUTED ON THIS ENGINE</span>
+                <h2>Recent executions</h2>
+              </div>
+              <span id="trade-count" class="small-label">0</span>
+            </div>
+            <div class="tablewrap">
+              <table class="grid" id="tape">
                 <thead>
-                <tr>
-                    <th>Side</th>
+                  <tr>
+                    <th>Local time</th>
                     <th class="num">Price</th>
-                    <th class="num">Remaining</th>
-                    <th></th>
-                </tr>
+                    <th class="num">Qty</th>
+                  </tr>
                 </thead>
                 <tbody></tbody>
-            </table>
+              </table>
+            </div>
+          </section>
         </div>
-
-        <div class="subpanel">
-            <h2>Tape</h2>
-            <table class="grid" id="tape">
-                <thead>
-                <tr>
-                    <th>Time</th>
-                    <th class="num">Price</th>
-                    <th class="num">Quantity</th>
-                </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </section>
-
-</main>
-
-<div class="toasts" id="toasts"></div>
-
-<dialog id="symbol-dialog">
-    <form method="dialog" id="symbol-form">
-        <h2>New instrument</h2>
-        <p class="hint">
-            A symbol needs a row in <code>instruments</code> before it can trade — that row
-            is what matching locks.
-        </p>
-        <input id="symbol-input" placeholder="MSFT" autocomplete="off">
+      </div>
+      <footer class="footer">
+        <span><i></i> JAVA 21 / SPRING BOOT / POSTGRESQL</span
+        ><span>Sandbox orders · 1-second polling · No market data feed</span
+        ><a
+          href="https://github.com/harshpro02/trade-matching-engine"
+          target="_blank"
+          rel="noreferrer"
+          >View source ↗</a
+        >
+      </footer>
+    </main>
+    <div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+    <dialog id="symbol-dialog" aria-labelledby="symbol-title">
+      <form method="dialog" id="symbol-form">
+        <div class="eyebrow">ADD A MARKET</div>
+        <h2 id="symbol-title">New instrument</h2>
+        <p class="hint">Create a symbol to start placing sandbox orders.</p>
+        <label for="symbol-input">Symbol</label
+        ><input
+          id="symbol-input"
+          placeholder="MSFT"
+          autocomplete="off"
+          maxlength="32"
+          pattern="[A-Za-z0-9.\-]+"
+        />
         <div class="dialog-actions">
-            <button value="cancel" class="ghost" type="submit">Cancel</button>
-            <button value="create" class="primary" type="submit">Create</button>
+          <button value="cancel" class="ghost" type="submit" formnovalidate>
+            Cancel</button
+          ><button value="create" class="primary" type="submit">
+            Create instrument
+          </button>
         </div>
-    </form>
-</dialog>
-
-<script src="app.js"></script>
-</body>
+      </form>
+    </dialog>
+    <dialog id="rules-dialog" aria-labelledby="rules-title">
+      <div class="dialog-top">
+        <span class="eyebrow">THE MATCHING RULES</span
+        ><button
+          class="ghost"
+          id="rules-close"
+          aria-label="Close matching rules"
+        >
+          ✕
+        </button>
+      </div>
+      <h2 id="rules-title">Every fill has a reason.</h2>
+      <ol class="rules-list">
+        <li>
+          <strong>Better price goes first.</strong>
+          <p>Buyers prefer the lowest ask. Sellers prefer the highest bid.</p>
+        </li>
+        <li>
+          <strong>At the same price, earlier goes first.</strong>
+          <p>
+            The engine uses an ordered sequence to keep arrival priority
+            deterministic.
+          </p>
+        </li>
+        <li>
+          <strong>The resting price wins.</strong>
+          <p>
+            A buy limit of 150.15 meeting a resting sell at 150.10 executes at
+            150.10.
+          </p>
+        </li>
+        <li>
+          <strong>Only limit orders can rest.</strong>
+          <p>
+            A market order fills against available liquidity and cancels any
+            remainder.
+          </p>
+        </li>
+      </ol>
+      <p class="hint">
+        The guided demo writes to a new sandbox symbol so you can observe these
+        rules without changing another instrument's book.
+      </p>
+    </dialog>
+    <script src="app.js"></script>
+    <script src="story.js"></script>
+  </body>
 </html>
