@@ -23,3 +23,10 @@ Dockerfile
 .dockerignore
 README.md
 HELP.md
+
+lab44-report/
+docs/
+.env
+.env.*
+*.pem
+*.key

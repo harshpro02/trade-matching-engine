@@ -314,7 +314,7 @@ depth ladder, positions, working orders and the tape, polling once a second. It 
 HTML, CSS and JavaScript served from `src/main/resources/static`, with no build step and no
 npm: it ships inside the jar and is available the moment the app starts.
 
-Two demo accounts are preset so one browser can take both sides of a trade and watch the
+Three demo accounts are preset so one browser can take both sides of a trade and watch the
 position and realised P&L move on each.
 
 **Submit an order:**
